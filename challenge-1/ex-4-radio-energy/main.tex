@@ -1,0 +1,103 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+
+\title{IoT Challenge 1 Ex-4}
+\author{Raul Agolli}
+\date{March 2026}
+
+\begin{document}
+
+\maketitle
+
+\section*{Q1. Communication Energy Computation}
+
+\begin{itemize}
+    \item Packet size ($k$): 2000 bits
+    \item Base energy ($E_c$): 300 nJ/bit
+    \item Amplifier energy ($\varepsilon$): 1 nJ/bit/m$^2$
+    \item Total distance ($D$): 40 m
+\end{itemize}
+
+Where:
+\begin{align*}
+    \text{Transmission: } & E_{tx}(k,d) = kE_c + k\varepsilon d^2 \\
+    \text{Reception: } & E_{rx}(k) = kE_c
+\end{align*}
+
+\subsection*{(a) Direct Transmission}
+In a direct transmission, the sensor sends the message straight to the sink over the full distance of \textbf{40 m}. 
+\begin{itemize}
+    \item \textbf{1 Transmission} (Sensor $\rightarrow$ Sink) over 40 m
+    \item \textbf{1 Reception} (at the Sink)
+\end{itemize}
+
+\textbf{Transmission Energy:}
+\begin{align*}
+    E_{tx} &= (2000 \cdot 300) + (2000 \cdot 1 \cdot 40^2) \\
+    E_{tx} &= 600,000 + (2000 \cdot 1600) \\
+    E_{tx} &= 600,000 + 3,200,000 \\
+    E_{tx} &= 3,800,000 \text{ nJ} = \mathbf{3.8 \text{ mJ}}
+\end{align*}
+
+\textbf{Reception Energy:}
+\begin{align*}
+    E_{rx} &= 2000 \cdot 300 = 600,000 \text{ nJ} = \mathbf{0.6 \text{ mJ}}
+\end{align*}
+
+\textbf{Total Energy (Direct):}
+\begin{align*}
+    E_{total} &= 3.8 \text{ mJ} + 0.6 \text{ mJ} = \mathbf{4.4 \text{ mJ}}
+\end{align*}
+
+\subsection*{(b) Multi-hop Transmission}
+Based on the figure, there are 4 equal segments (Sensor $\rightarrow$ B1 $\rightarrow$ B2 $\rightarrow$ B3 $\rightarrow$ Sink). This means there are \textbf{4 hops}, each covering a distance of \textbf{10 m} ($40 \text{ m} / 4$).
+\begin{itemize}
+    \item \textbf{4 Transmissions} (over 10 m each)
+    \item \textbf{4 Receptions}
+\end{itemize}
+
+\textbf{Transmission Energy per hop:}
+\begin{align*}
+    E_{tx} &= (2000 \cdot 300) + (2000 \cdot 1 \cdot 10^2) \\
+    E_{tx} &= 600,000 + (2000 \cdot 100) \\
+    E_{tx} &= 600,000 + 200,000 \\
+    E_{tx} &= 800,000 \text{ nJ} = \mathbf{0.8 \text{ mJ}}
+\end{align*}
+
+\textbf{Reception Energy per hop:}
+\begin{align*}
+    E_{rx} &= 2000 \cdot 300 = 600,000 \text{ nJ} = \mathbf{0.6 \text{ mJ}}
+\end{align*}
+
+\textbf{Energy per hop:}
+\begin{align*}
+    E_{hop} &= 0.8 \text{ mJ} + 0.6 \text{ mJ} = \mathbf{1.4 \text{ mJ}}
+\end{align*}
+
+\textbf{Total Energy (Multi-hop):}
+\begin{align*}
+    E_{total} &= 4 \text{ hops} \cdot 1.4 \text{ mJ/hop} = \mathbf{5.6 \text{ mJ}}
+\end{align*}
+
+\vspace{0.5cm}
+\hrule
+\vspace{0.5cm}
+
+\section*{Q2. Strategy \& Justification}
+
+\begin{itemize}
+    \item \textbf{Which strategy would you choose for long-term operation?}\\
+    \textbf{Multi-hop transmission.}
+
+    \item \textbf{Which performance metric are you optimizing?}\\
+    \textbf{Network Lifetime} (specifically, the time until the first node dies, which depends on the lifetime of the battery-powered nodes).
+
+    \item \textbf{Brief Justification:}\\
+    While direct transmission uses less \textit{total} network energy (\textbf{4.4 mJ} vs \textbf{5.6 mJ}), it places a huge burden solely on the Motion Sensor (\textbf{3.8 mJ} per transmission). 
+    
+    The manufacturer specifications indicate the hardware differences: an Aqara Motion Sensor is a battery-powered device, whereas the Philips Hue smart bulbs (B1, B2, B3) and the Sink are plugged into the grid. By choosing the multi-hop strategy, the battery-powered sensor only expends \textbf{0.8 mJ} per transmission, effectively offloading the bulk of the energy cost to the grid-powered bulbs. This significantly prolongs the battery life of the sensor, thereby maximizing the practical lifetime of the network.
+\end{itemize}
+
+\end{document}
