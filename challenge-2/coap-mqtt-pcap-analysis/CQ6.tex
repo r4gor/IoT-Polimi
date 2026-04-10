@@ -1,0 +1,110 @@
+\section{CQ6}
+
+\begin{fancyquote}
+    \textbf{CQ6a)} How many different MQTT clients sent atleast one message to erase a previously retained value in a topic in the public HiveMQ broker?\\
+    \textbf{CQ6b)} How many of the clients found in CQ6a) connected to the HiveMQ broker with a client identifier strictly longer than 7 bytes (>7)?
+\end{fancyquote}
+
+To solve the question, we first identified the IP addresses of the public HiveMQ broker from DNS resolution:
+\begin{lstlisting}
+tshark -r B.pcapng -Y 'dns.flags.response == 1 && dns.qry.name contains "hivemq"' -T fields -e dns.qry.name -e dns.a
+\end{lstlisting}
+\[
+35.158.43.69,\; 35.158.34.213,\; 18.192.151.104
+\]
+
+Then we considered only MQTT traffic directed to those IP addresses.
+
+In MQTT, a retained value is erased by sending a \texttt{PUBLISH} message with:
+\begin{itemize}
+    \item \texttt{mqtt.msgtype == 3} (\texttt{PUBLISH})
+    \item retain flag set
+    \item empty payload
+\end{itemize}
+
+Therefore, the solution was structured in two parts:
+\begin{enumerate}
+    \item map each TCP stream to the corresponding MQTT client identifier using \texttt{CONNECT} packets;
+    \item find the TCP streams containing retained \texttt{PUBLISH} messages with empty payload, then associate those streams with their client identifiers.
+\end{enumerate}
+
+\subsection*{1. Extract MQTT client identifiers from CONNECT packets}
+
+We extracted all MQTT \texttt{CONNECT} packets directed to the HiveMQ broker and saved the mapping \texttt{tcp.stream $\rightarrow$ mqtt.clientid}:
+
+\begin{lstlisting}
+tshark -r B.pcapng -Y '(ip.dst == 35.158.43.69 || ip.dst == 35.158.34.213 || ip.dst == 18.192.151.104) && mqtt.msgtype == 1' -T fields -e tcp.stream -e mqtt.clientid | sort -u > stream_clientid.txt
+\end{lstlisting}
+
+This produced the following stream-to-client mapping:
+
+    \begin{verbatim}
+    1   pcbtjyj
+    3   cpoepjzkhibxgjiu
+    8   dzcxnwdqef
+    15  tukvxesuhe
+    20  fcthvjikxjul
+    22  giuxfijwus
+    23  pohujuv
+    43  atqeblw
+    44  rolsmcwhshlbc
+    \end{verbatim}
+
+
+\subsection*{2. Find retained PUBLISH messages with empty payload}
+
+Then we extracted all retained MQTT \texttt{PUBLISH} packets directed to the HiveMQ broker:
+
+\begin{lstlisting}
+tshark -r B.pcapng -Y "($BROKER_DST) && mqtt.msgtype == 3 && mqtt.retain == 1" -T fields -e frame.number -e tcp.stream -e mqtt.topic -e mqtt.msg -e mqtt.msg_text > retained_candidates.txt
+\end{lstlisting}
+
+In the output, packets used to erase a retained value are those where the payload field is missing, shown by \texttt{<MISSING>}.  
+Thus we extracted the corresponding TCP streams:
+
+\begin{lstlisting}
+awk -F '\t' '($4 == "<MISSING>" || $4 == "") {print $2}' retained_candidates.txt | sort -u > erase_streams.txt
+\end{lstlisting}
+The resulting streams were:
+    \begin{verbatim}
+    1
+    22
+    23
+    43
+    44
+    \end{verbatim}
+
+\subsection*{3. Associate erase streams with client identifiers}
+
+Finally, we associated the streams found above with the client identifiers extracted from the \texttt{CONNECT} packets:
+
+\begin{lstlisting}
+sort erase_streams.txt > erase_streams_sorted.txt
+sort stream_clientid.txt > stream_clientid_sorted.txt
+join erase_streams_sorted.txt stream_clientid_sorted.txt > cq6_clients.txt
+\end{lstlisting}
+
+So the distinct MQTT clients that sent at least one retained-delete message are:
+\[
+\{\texttt{pcbtjyj},\; \texttt{giuxfijwus},\; \texttt{pohujuv},\; \texttt{atqeblw},\; \texttt{rolsmcwhshlbc}\}
+\]
+
+\textbf{\huge Answer CQ6a: 5}
+
+\subsection*{4. Count client identifiers longer than 7 bytes}
+
+Among the 5 clients found in CQ6a:
+\begin{itemize}
+    \item \texttt{pcbtjyj} has length 7
+    \item \texttt{giuxfijwus} has length 10
+    \item \texttt{pohujuv} has length 7
+    \item \texttt{atqeblw} has length 7
+    \item \texttt{rolsmcwhshlbc} has length 13
+\end{itemize}
+
+Therefore, the client identifiers strictly longer than 7 bytes are:
+\[
+\texttt{giuxfijwus},\; \texttt{rolsmcwhshlbc}
+\]
+
+\textbf{\huge Answer CQ6b: 2}

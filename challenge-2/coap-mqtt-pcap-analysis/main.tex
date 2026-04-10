@@ -1,0 +1,70 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{tcolorbox}
+
+% --- Color Definitions ---
+\definecolor{terminalbg}{RGB}{30, 30, 30}     % Dark gray/black for terminal
+\definecolor{terminaltext}{RGB}{212, 212, 212} % Light gray for text
+\definecolor{quotebg}{RGB}{245, 247, 250}      % Very light blue/gray for quote
+\definecolor{quoteline}{RGB}{41, 128, 185}     % Blue accent line for quote
+
+% --- Code Block (Listings) Setup ---
+\lstdefinestyle{darkterminal}{
+    backgroundcolor=\color{terminalbg},
+    basicstyle=\ttfamily\color{terminaltext}\small,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{terminalbg}, % Hides the frame border by making it match the bg
+    framesep=8pt,                 % Padding inside the box
+    xleftmargin=8pt,
+    xrightmargin=8pt,
+    showstringspaces=false
+}
+\lstset{style=darkterminal}
+
+% --- Quote Box (tcolorbox) Setup ---
+\newtcolorbox{fancyquote}{
+    colback=quotebg,
+    colframe=quoteline,
+    boxrule=0pt,       % No border on top/right/bottom
+    leftrule=4pt,      % Thick accent line on the left
+    arc=4pt,           % Slightly rounded corners
+    boxsep=5pt,
+    left=10pt,
+    right=10pt,
+    fontupper=\itshape % Makes the quote text italic
+}
+\lstset{breaklines=true}
+
+\title{IoT - Challenge 2}
+\author{Raul Agolli - Team Leader \\\\ Gabriele Lorenzo Singe}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+
+\include{CQ1}
+
+
+\include{CQ2}
+
+
+\include{CQ3new}
+
+
+\include{CQ4}
+
+\include{CQ5new}
+
+\include{CQ6}
+\include{CQ7}
+\include{CQ8}
+% \include{CQ5new}
+\end{document}

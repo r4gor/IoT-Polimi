@@ -1,0 +1,60 @@
+\section{CQ7}
+
+\begin{fancyquote}
+    \textbf{Question:}\\
+    How many MQTT subscribe requests directed to the local broker specify a topic with at least two wildcards?
+\end{fancyquote}
+
+We extracted all MQTT \texttt{SUBSCRIBE} packets from \texttt{B.pcapng}:
+
+\begin{lstlisting}
+tshark -r B.pcapng -Y "mqtt.msgtype == 8" -T fields -e frame.number -e tcp.stream -e ip.src -e ip.dst -e mqtt.topic > all_subscribe.txt
+\end{lstlisting}
+
+Then we filtered the subscribe requests whose topic filter contains at least two wildcard symbols.  
+In MQTT, the wildcard symbols are:
+\begin{itemize}
+    \item \texttt{+} for single-level wildcard
+    \item \texttt{\#} for multi-level wildcard
+\end{itemize}
+
+To detect topics containing at least two wildcards, we used:
+
+\begin{lstlisting}
+awk -F '\t' '$5 ~ /[+#].*[+#]/ {print $0}' all_subscribe.txt
+\end{lstlisting}
+
+This produced the following candidate subscribe requests:
+
+\begin{verbatim}
+226   university/+/+/deposit
+363   hospital/+/+/light
+375   university/+/+/#
+460   metaverse/+/room1/#
+473   house/department3/+/+
+700   metaverse/facility0/+/+
+1177  hospital/fxlugs/+/#
+1915  metaverse/+/+/hydraulic_valve
+2360  factory/+/#
+2994  house/+/room1/#
+\end{verbatim}
+
+However, the request in frame \texttt{375} was directed to \texttt{18.192.151.104}, which is a public HiveMQ broker and not the local broker. Therefore, it must be excluded.
+
+The remaining valid subscribe requests directed to the local broker are:
+
+\begin{verbatim}
+226   university/+/+/deposit
+363   hospital/+/+/light
+460   metaverse/+/room1/#
+473   house/department3/+/+
+700   metaverse/facility0/+/+
+1177  hospital/fxlugs/+/#
+1915  metaverse/+/+/hydraulic_valve
+2360  factory/+/#
+2994  house/+/room1/#
+\end{verbatim}
+
+Therefore, the total number of MQTT subscribe requests directed to the local broker that specify a topic with at least two wildcards is:\\
+
+\textbf{\huge Answer CQ7: 9}

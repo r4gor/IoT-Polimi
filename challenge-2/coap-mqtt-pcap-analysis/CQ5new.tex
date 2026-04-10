@@ -1,0 +1,91 @@
+\section{CQ5}
+
+\begin{fancyquote}
+    \textbf{Question:}\\
+    How many MQTT subscribers receive a last will message derived from a subscription that includes at least one wildcard?
+\end{fancyquote}
+
+\subsection*{Identify Clients that Generate a Last Will}
+A Last Will message is only published by the broker if a client sets the Will Flag in its \texttt{CONNECT} packet and subsequently disconnects without sending a graceful MQTT \texttt{DISCONNECT}. 
+
+First, extract all clients that configured a Last Will topic:
+
+\begin{lstlisting}[language=bash]
+tshark -r B.pcapng -Y "mqtt.conflag.willflag == 1" -T fields -e frame.number -e tcp.stream -e mqtt.clientid -e mqtt.willtopic > will_connects.txt
+\end{lstlisting}
+
+Next, extract all graceful MQTT \texttt{DISCONNECT} packets:
+
+\begin{lstlisting}[language=bash]
+tshark -r B.pcapng -Y "mqtt.msgtype == 14" -T fields -e frame.number -e tcp.stream > disconnects.txt
+\end{lstlisting}
+
+By comparing the two lists, we can isolate the Will-configured streams that dropped ungracefully:
+
+\begin{lstlisting}[language=bash]
+awk 'NR==FNR {d[$2]=1; next} !($2 in d) {print}' disconnects.txt will_connects.txt > will_without_disconnect.txt
+\end{lstlisting}
+
+This produces the following list of candidate Last Will generators and their respective topics:
+
+\begin{verbatim}
+4    0    [missing]          university/department12/room1/temperature
+196  12   wikdxsrbyewyocm    metaverse/room2/floor4
+352  16   lstvfjwz           hospital/facility3/area3
+557  21   kiurrznrgj         metaverse/room2/room2
+\end{verbatim}
+
+\subsection*{Find Broker-to-Subscriber Deliveries on Will Topics}
+To determine which of these messages were actually distributed, we must extract all MQTT \texttt{PUBLISH} packets matching the candidate Will topics:
+
+\begin{lstlisting}[language=bash]
+tshark -r B.pcapng -Y 'mqtt.msgtype == 3 && (mqtt.topic == "hospital/facility3/area3" || mqtt.topic == "metaverse/room2/floor4" || mqtt.topic == "metaverse/room2/room2" || mqtt.topic == "university/department12/room1/temperature")' -T fields -e frame.number -e tcp.stream -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e mqtt.topic > will_publishes.txt
+\end{lstlisting}
+
+To filter exclusively for messages delivered \emph{by the broker} to the subscribers, we isolate packets originating from the default MQTT source port (\texttt{1883}):
+
+\begin{lstlisting}[language=bash]
+awk -F '\t' '$5 == "1883" {print}' will_publishes.txt > will_delivered.txt
+\end{lstlisting}
+
+We then associate each delivery stream with its corresponding MQTT client identifier to map the exact recipients:
+
+\begin{lstlisting}[language=bash]
+tshark -r B.pcapng -Y "mqtt.msgtype == 1" -T fields -e tcp.stream -e mqtt.clientid | sort -u > stream_clientid.txt
+awk 'NR==FNR {cid[$1]=$2; next} {print $1, $2, cid[$2]}' stream_clientid.txt will_delivered.txt > actual_will_delivered_with_client.txt
+\end{lstlisting}
+
+
+\subsection*{Intersect Deliveries with Wildcard Subscriptions}
+The objective requires identifying subscribers that receive the Last Will \emph{specifically due to a wildcard subscription}. First, extract all \texttt{SUBSCRIBE} requests containing wildcards (\texttt{+} or \texttt{\#}) and map them to their client identifiers:
+
+\begin{lstlisting}[language=bash]
+tshark -r B.pcapng -Y "mqtt.msgtype == 8" -T fields -e frame.number -e tcp.stream -e mqtt.topic | grep -E '\+|#' > wildcard_subs.txt
+awk 'NR==FNR {cid[$1]=$2; next} {print $1, $2, cid[$2], $3}' stream_clientid.txt wildcard_subs.txt > wildcard_subs_with_client.txt
+\end{lstlisting}
+
+Reviewing the valid deliveries reveals that the only relevant active Will topic is:
+\begin{verbatim}
+university/department12/room1/temperature
+\end{verbatim}
+
+The active wildcard subscriptions capable of matching this specific topic are:
+\begin{itemize}
+    \item \texttt{university/\#}
+    \item \texttt{university/+/+/\#}
+\end{itemize}
+
+Finally, we compute the intersection between clients holding these specific wildcard subscriptions and the clients that actually received the Will message:
+
+\begin{lstlisting}[language=bash]
+awk '$4=="university/#" || $4=="university/+/+/#"' wildcard_subs_with_client.txt | awk '{print $3}' | sort -u > cq5_wild_subscribers.txt
+awk '$3!="" {print $3}' actual_will_delivered_with_client.txt | sort -u > cq5_will_receivers.txt
+comm -12 cq5_wild_subscribers.txt cq5_will_receivers.txt
+\end{lstlisting}
+
+This intersection returns a single client ID: \texttt{zmjnxudohrkaegmh}. \\
+
+\vspace{0.5cm}
+\noindent
+\textbf{\huge Answer CQ5: 1} \\
+(Only one MQTT subscriber receives a Last Will message derived from a wildcard subscription).

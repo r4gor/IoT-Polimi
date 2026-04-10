@@ -1,0 +1,26 @@
+\section{CQ4}
+
+\begin{fancyquote}
+    \textbf{Question:}\\
+    How many MQTT-SN messages are received by the clients from the local broker listening on port 1885?
+\end{fancyquote}
+
+\vspace{0.3cm}
+
+\noindent
+\begin{minipage}{\linewidth}
+Because MQTT-SN operates over UDP, Tshark does not automatically decode traffic on port 1885 as MQTT-SN. To accurately find messages sent \textit{from} the broker \textit{to} the clients, the first logical step is explicitly forcing the analyzer to interpret all UDP traffic on that specific port as MQTT-SN using the \texttt{-d udp.port==1885,mqttsn} flag. 
+
+Next, we apply a display filter (\texttt{udp.srcport == 1885 \&\& mqttsn}). Filtering by the source port isolates traffic originating from the broker, while adding the \texttt{\&\& mqttsn} condition ensures the packet is not just random UDP noise, but a successfully parsed, valid MQTT-SN message. Finally, we pipe the output to \texttt{wc -l} to count the frames.
+
+\begin{lstlisting}
+tshark -r A.pcapng -d udp.port==1885,mqttsn -Y "udp.srcport == 1885 && mqttsn" -T fields -e frame.number | wc -l
+\end{lstlisting}
+
+\vspace{0.3cm}
+
+\textbf{\huge Answer CQ4: 0}
+
+\vspace{0.2cm}
+\textit{Note: The command outputs \texttt{0}. Further analysis of the PCAP file confirms that while clients send telemetry data to port 1885, the broker never sends any outbound replies from that port. Therefore, the clients received exactly 0 messages from the local broker.}
+\end{minipage}
