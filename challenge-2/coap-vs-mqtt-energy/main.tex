@@ -1,0 +1,219 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\geometry{margin=2.5cm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+
+\title{IoT - Challenge 2 - Part 2}
+\author{Raul Agolli - Team Leader \\\\ Gabriele Lorenzo Singe}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+This report presents the solution to Part 2 of Challenge 2.
+The system consists of:
+\begin{itemize}[leftmargin=1.5cm]
+    \item a battery-powered temperature sensor transmitting one measurement every 2 minutes,
+    \item a battery-powered actuator (fan controller) receiving temperature data and deciding whether to switch ON/OFF,
+    \item a mains-powered gateway supporting only MQTT.
+\end{itemize}
+
+The communication can take place either:
+\begin{itemize}[leftmargin=1.5cm]
+    \item directly using CoAP,
+    \item through the gateway using MQTT.
+\end{itemize}
+
+Communication parameters:
+\begin{itemize}
+    \item Payload size: 12 bytes
+    \item Topic/resource length: 8 bytes
+\end{itemize}
+
+
+
+The given message sizes are:
+\begin{center}
+\begin{tabular}{l c}
+\toprule
+\textbf{CoAP message} & \textbf{Size [B]} \\
+\midrule
+CON PUT Request & 70 \\
+PUT ACK & 15 \\
+\bottomrule
+\end{tabular}
+\hspace{1cm}
+\begin{tabular}{l c}
+\toprule
+\textbf{MQTT message} & \textbf{Size [B]} \\
+\midrule
+Subscribe & 65 \\
+SubAck & 55 \\
+Publish & 75 \\
+PubAck & 50 \\
+Connect/Disconnect & 60 \\
+ConnectAck & 50 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The energy parameters are:
+\[
+E_{TX} = 50 \text{ nJ/bit}, \qquad E_{RX} = 58 \text{ nJ/bit}
+\]
+
+The assumptions used are:
+\begin{enumerate}[leftmargin=1.5cm]
+    \item CoAP uses Confirmable (CON) messages.
+    \item MQTT uses QoS 1.
+    \item Communication is ideal, with no losses.
+    \item For EQ1, nodes establish the connection once and remain connected.
+    \item Only the energy consumed by sensor and actuator is considered.
+\end{enumerate}
+
+Since the sensor transmits one measurement every 2 minutes, in one hour the total number of measurements is:
+\[
+N = \frac{60}{2} = 30
+\]
+
+\section{EQ1 --- Communication energy over 1 hour}
+
+\subsection{EQ1a --- CoAP direct communication}
+
+For each measurement:
+\begin{itemize}[leftmargin=1.5cm]
+    \item the sensor transmits one CON PUT request of 70 B,
+    \item the actuator receives the 70 B request,
+    \item the actuator transmits one PUT ACK of 15 B,
+    \item the sensor receives the 15 B ACK.
+\end{itemize}
+
+Therefore, the energy consumed for one CoAP exchange is:
+\[
+E_{\text{CoAP},1} =
+70 \cdot 8 \cdot E_{TX}
++ 70 \cdot 8 \cdot E_{RX}
++ 15 \cdot 8 \cdot E_{TX}
++ 15 \cdot 8 \cdot E_{RX}
+\]
+
+\[
+E_{\text{CoAP},1} = 73.44 \ \mu J
+\]
+
+Since there are 30 measurements in one hour:
+\[
+E_{\text{CoAP},1h} = 30 \cdot 73.44 = 2203.2 \ \mu J
+\]
+
+\[
+\boxed{EQ1a = 2203.2 \ \mu J}
+\]
+
+\subsection{EQ1b --- MQTT communication via gateway}
+
+For EQ1, nodes establish the MQTT connection once and remain connected for the whole hour.
+
+\subsubsection*{Sensor energy}
+
+At the beginning, the sensor:
+\begin{itemize}[leftmargin=1.5cm]
+    \item transmits one CONNECT message of 60 B,
+    \item receives one CONNACK message of 50 B.
+\end{itemize}
+
+Then, for each of the 30 measurements:
+\begin{itemize}[leftmargin=1.5cm]
+    \item it transmits one PUBLISH message of 75 B,
+    \item it receives one PUBACK message of 50 B.
+\end{itemize}
+
+Thus:
+\[
+E_{\text{sens}} =
+(60 + 30 \cdot 75)\cdot 8 \cdot E_{TX}
++
+(50 + 30 \cdot 50)\cdot 8 \cdot E_{RX}
+\]
+
+\[
+E_{\text{sens}} = 1643.2 \ \mu J
+\]
+
+\subsubsection*{Actuator energy}
+
+At the beginning, the actuator:
+\begin{itemize}[leftmargin=1.5cm]
+    \item transmits one CONNECT message of 60 B,
+    \item receives one CONNACK message of 50 B,
+    \item transmits one SUBSCRIBE message of 65 B,
+    \item receives one SUBACK message of 55 B.
+\end{itemize}
+
+Then, for each of the 30 measurements:
+\begin{itemize}[leftmargin=1.5cm]
+    \item it receives one PUBLISH message of 75 B,
+    \item it transmits one PUBACK message of 50 B.
+\end{itemize}
+
+Therefore:
+\[
+E_{\text{act}} =
+(60 + 65 + 30 \cdot 50)\cdot 8 \cdot E_{TX}
++
+(50 + 55 + 30 \cdot 75)\cdot 8 \cdot E_{RX}
+\]
+
+\[
+E_{\text{act}} = 1742.72 \ \mu J
+\]
+
+\subsubsection*{Total MQTT energy}
+
+The total energy over one hour is:
+\[
+E_{\text{MQTT},1h} = E_{\text{sens}} + E_{\text{act}}
+\]
+
+\[
+\boxed{EQ1b = 3385.92 \ \mu J}
+\]
+
+\section{EQ2 --- Protocol choice with actuator waking up every 30 minutes}
+
+In this scenario, the actuator wakes up only once every 30 minutes, while the sensor still generates a temperature measurement every 2 minutes.
+The goal is to minimize the long-term communication energy consumption of the battery-powered devices.
+
+In this case, MQTT is the preferable solution, because the broker can store the latest published value and deliver it as soon as the actuator reconnects.
+This avoids forcing the actuator to wake up every 2 minutes or to miss the most recent information.
+
+A suitable configuration is:
+\begin{itemize}[leftmargin=1.5cm]
+    \item MQTT with QoS 1,
+    \item retained publish,
+    \item persistent session (\texttt{clean session = false}).
+\end{itemize}
+
+With this choice, when the actuator wakes up every 30 minutes, it can immediately obtain the latest available temperature value while minimizing its active communication time.
+
+\bigskip
+\noindent
+\textbf{Answer for EQ2:}
+
+\begin{quote}
+We would choose MQTT via the gateway, with QoS 1, retained publish, and persistent session (\texttt{clean session = false}). The optimized metric is actuator communication energy: when it wakes up every 30 minutes, it can immediately receive the latest temperature value.
+\end{quote}
+
+\end{document}
