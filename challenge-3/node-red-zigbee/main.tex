@@ -1,0 +1,88 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{amsmath}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+% ---------- Code listing style ----------
+\definecolor{codebg}{RGB}{248,248,245}
+\definecolor{codeframe}{RGB}{210,208,200}
+\definecolor{codekw}{RGB}{170,13,145}      % keywords (purple)
+\definecolor{codestr}{RGB}{196,26,22}      % strings (red)
+\definecolor{codecom}{RGB}{93,108,121}     % comments (gray-blue)
+\definecolor{codenum}{RGB}{120,120,120}    % line numbers
+\definecolor{codeid}{RGB}{40,40,40}        % identifiers
+
+\lstdefinelanguage{JavaScript}{
+    keywords={break,case,catch,const,continue,default,delete,do,else,
+              export,extends,finally,for,function,if,import,in,instanceof,
+              let,new,null,of,return,super,switch,this,throw,true,false,
+              try,typeof,undefined,var,void,while,with,yield},
+    keywordstyle=\color{codekw}\bfseries,
+    ndkeywords={msg,flow,global,node,JSON,Math,Date,Number,String,Array,Object},
+    ndkeywordstyle=\color{codekw!80!black},
+    sensitive=true,
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    commentstyle=\color{codecom}\itshape,
+    stringstyle=\color{codestr},
+    morestring=[b]',
+    morestring=[b]",
+    morestring=[b]`
+}
+
+\lstset{
+    language=JavaScript,
+    basicstyle=\ttfamily\footnotesize\color{codeid},
+    backgroundcolor=\color{codebg},
+    rulecolor=\color{codeframe},
+    frame=single,
+    framesep=6pt,
+    framerule=0.4pt,
+    xleftmargin=14pt,
+    xrightmargin=4pt,
+    aboveskip=8pt,
+    belowskip=8pt,
+    numbers=left,
+    numberstyle=\tiny\color{codenum},
+    numbersep=8pt,
+    showstringspaces=false,
+    breaklines=true,
+    breakatwhitespace=true,
+    breakindent=12pt,
+    tabsize=2,
+    columns=fullflexible,
+    keepspaces=true,
+    captionpos=b,
+    abovecaptionskip=4pt,
+    belowcaptionskip=2pt
+}
+
+\setlist{nosep,leftmargin=*}
+
+\title{IoT - Challenge 3}
+\author{Raul Agolli - Team Leader \\\\ Gabriele Lorenzo Singe}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+\include{overview}
+
+\include{A}
+
+\include{B}
+
+\include{C}
+
+\include{D}
+
+\include{E}
+
+\include{deliverables}
+
+\end{document}
