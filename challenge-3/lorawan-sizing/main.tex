@@ -1,0 +1,92 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\geometry{margin=2.5cm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+
+\title{IoT - Challenge 3 - Part 2}
+\author{Raul Agolli - Team Leader \\\\ Gabriele Lorenzo Singe}
+\date{May 2026}
+
+\begin{document}
+
+\maketitle
+
+\section*{Exercise EQ1}
+
+We consider a LoRaWAN network with $N=40$ nodes, each generating packets according to a Poisson process with intensity $\lambda = 2$ packets/min.
+
+The total traffic offered to the channel is:
+\[
+\Lambda = N \lambda = 40 \cdot 2 = 80 \text{ packets/min} = \frac{80}{60} \approx 1.33 \text{ packets/s}
+\]
+
+According to the LoRaWAN Class~A specification, the uplink access is ALOHA-like. Hence, assuming an asynchronous ALOHA model, the probability of successful transmission is:
+\[
+P_{\text{succ}} = e^{-2\Lambda T_{\text{air}}}
+\]
+
+We require:
+\[
+P_{\text{succ}} \ge 0.75
+\]
+
+Thus:
+\[
+e^{-2\Lambda T_{\text{air}}} \ge 0.75
+\]
+
+Taking the logarithm:
+\[
+T_{\text{air}} \le \frac{-\ln(0.75)}{2\Lambda}
+\]
+
+Substituting:
+\[
+T_{\text{air}} \le \frac{0.2877}{2 \cdot 1.33} \approx 0.108 \text{ s} = 107.9 \text{ ms}
+\]
+
+Using the TTN airtime calculator (EU868, BW = 125 kHz, payload = 20 bytes):
+
+\[
+\begin{array}{c|c}
+\text{SF} & T_{\text{air}} \\
+\hline
+7 & 71.9\ \text{ms} \\
+8 & 133.6\ \text{ms} \\
+9 & 246.8\ \text{ms}
+\end{array}
+\]
+
+Only SF7 satisfies the constraint:
+\[
+71.9\ \text{ms} \le 107.9\ \text{ms}
+\]
+
+\[
+\boxed{\text{SF} = 7}
+\]
+
+\section*{Exercise EQ2}
+
+The observed performance is significantly lower than expected and highly non-uniform across nodes. This indicates that the problem is not only due to collisions, but also to heterogeneous link conditions (e.g., distance, path loss, or SNR differences).
+
+\begin{itemize}
+    \item Decreasing the number of nodes would reduce collisions globally, but would not explain the strong performance asymmetry.
+    \item Increasing the spreading factor would improve sensitivity, but also increase airtime, thus worsening collisions.
+    \item Moving nodes closer to the gateway improves link quality (higher SNR, lower path loss), directly addressing the nodes with poor performance.
+\end{itemize}
+
+Therefore, the most appropriate action is:
+\[
+\boxed{\text{Move the nodes closer to the gateway}}
+\]
+\end{document}
