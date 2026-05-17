@@ -1,0 +1,324 @@
+\documentclass[11pt,a4paper]{article}
+
+%,fonts ------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{mathpazo}                           % Palatino body + math
+\usepackage[scaled=0.92]{helvet}            % Helvetica for sans
+\linespread{1.07}
+
+%,layout -----------------------------------------------------------
+\usepackage[a4paper,
+            top=2.4cm, bottom=2.4cm,
+            left=2.6cm, right=2.6cm,
+            headheight=14pt]{geometry}
+\usepackage[protrusion=true,expansion=false]{microtype}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\setlist{leftmargin=*,labelsep=0.6em,itemsep=2pt,topsep=4pt}
+
+%,accent colour: muted navy / slate -------------------------------
+\definecolor{ink}{HTML}{1F2A37}
+\definecolor{slate}{HTML}{2D4356}
+\definecolor{rule}{HTML}{C5CBD3}
+\definecolor{codebg}{HTML}{F6F6F4}
+
+%,headings: sans, with a thin rule below the section --------------
+\usepackage{titlesec}
+\titleformat{\section}
+  {\normalfont\sffamily\large\bfseries\color{slate}}
+  {\textcolor{slate}{\thesection \enskip\textbar\enskip}}{0pt}{}
+  [\vspace{-2pt}{\color{rule}\hrule height 0.4pt}\vspace{2pt}]
+\titlespacing*{\section}{0pt}{18pt}{6pt}
+
+\titleformat{\subsection}
+  {\normalfont\sffamily\normalsize\bfseries\color{slate}}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{10pt}{2pt}
+
+\titleformat{\paragraph}[runin]
+  {\normalfont\sffamily\small\bfseries\color{ink}}{}{0pt}{}[\enspace]
+\titlespacing*{\paragraph}{0pt}{6pt}{0.4em}
+
+%,header / footer -------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\fancyhead[L]{\footnotesize\sffamily\color{slate}IoT Course — Exercise 2}
+\fancyhead[R]{\footnotesize\sffamily\color{slate}BLE denture localization}
+\fancyfoot[C]{\footnotesize\sffamily\color{slate}\thepage}
+
+%,tables: booktabs only, no colour blocks -------------------------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\renewcommand{\arraystretch}{1.18}
+
+%,code listings: minimal, thin left bar ---------------------------
+\usepackage{listings}
+\lstdefinestyle{pseudo}{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\footnotesize\color{ink},
+    breaklines=true,
+    frame=leftline,
+    framerule=1.4pt,
+    rulecolor=\color{slate},
+    framesep=8pt,
+    xleftmargin=14pt,
+    xrightmargin=2pt,
+    aboveskip=8pt,
+    belowskip=6pt,
+    keywordstyle=\bfseries\color{slate},
+    commentstyle=\itshape\color{slate!60!black},
+    morekeywords={init,loop,forever,if,elif,else,while,for,in,function,return,
+                  and,or,not,wait_for,sleep,send_BLE_beacon,configure,
+                  enable_interrupt,read,now}
+}
+
+\usepackage[hidelinks]{hyperref}
+
+%,title block -----------------------------------------------------
+\title{IoT - Challenge 4 Homework - Part 2}
+\author{Raul Agolli - Team Leader \\\\ Gabriele Lorenzo Singe}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+%,context ---------------------------------------------------------
+\noindent\textsc{Problem.}\enskip
+The original firmware advertises every $10\,$s regardless of context.
+For most of the day the denture is either \emph{in the patient's mouth}
+(localization is not needed) or \emph{sitting still in the same place}
+(repeated beacons add no information). The course's hardware lecture is
+explicit on the point: radio energy dominates the budget, idle TX should
+be avoided, and the radio must be switched off as soon as possible. The
+fix is to replace periodic beaconing with an \emph{event-driven} scheme
+driven by an accelerometer interrupt, with a slow heartbeat as a
+keep-alive.
+
+% =====================================================================
+\section{Beaconing logic}
+% =====================================================================
+
+A three-state machine drives the radio.
+
+\begin{tabularx}{\linewidth}{@{} l Y l @{}}
+\toprule
+\textsc{state} & \textsc{when}\ /\ \textsc{what} & \textsc{rate} \\
+\midrule
+\textsf{DEEP-SLEEP}
+  & No motion for $>30\,$s, or denture worn. Radio OFF; MCU in deep
+    sleep; accelerometer in low-power motion-detect mode. Slow
+    heartbeat for keep-alive.
+  & 1 / 5\,min \\
+\addlinespace[2pt]
+\textsf{ACTIVE}
+  & Accelerometer wake-on-motion interrupt fired. Fast advertising for
+    dense RSSI sampling by the gateways.
+  & 1 / 1--2\,s \\
+\addlinespace[2pt]
+\textsf{SETTLING}
+  & Motion has stopped for $>5\,$s but $<30\,$s. Short burst of final
+    beacons so the resting position is well sampled, then back to
+    \textsf{DEEP-SLEEP}.
+  & 3 over 5\,s \\
+\bottomrule
+\end{tabularx}
+
+\paragraph{Key insight.}
+Localization is only useful while the denture has \emph{just moved} —
+the caregiver needs to know where the patient set it down. When the
+denture is static the gateways already have a valid fix.
+
+% =====================================================================
+\section{Additional sensors}
+% =====================================================================
+
+\begin{description}[font=\sffamily\bfseries\color{slate}]
+\item[Accelerometer (mandatory).]
+A 3-axis MEMS accelerometer with hardware wake-on-motion interrupt.
+The sensor draws a few $\mu$A in motion-detect mode and asserts an
+interrupt line straight to the BLE SoC — the exact wake-up pattern
+described in the hardware-abstraction lecture (event-driven instead of
+polling).
+
+\item[Body-contact thermistor (optional, recommended).]
+When the temperature is close to $36\,^\circ$C the denture is in the
+mouth and localization can be \emph{suppressed entirely} (the patient
+has it). This eliminates beaconing during the many hours per day the
+denture is worn.
+\end{description}
+
+% =====================================================================
+\section{Improved firmware}
+% =====================================================================
+
+\begin{lstlisting}[style=pseudo]
+init:
+    accel.configure(threshold = 0.1 g, ODR = 25 Hz, mode = MOTION_DETECT)
+    accel.enable_interrupt(pin = INT1)        # wakes the MCU
+    temp.configure(low_power_mode)
+    send_BLE_beacon()                         # first position fix
+    last_motion = now()
+    state = DEEP_SLEEP
+
+loop forever:
+
+    if state == DEEP_SLEEP:
+        # MCU + radio OFF; only accelerometer and RTC still running
+        wait_for(motion_interrupt OR rtc_timeout(5 min))
+        if motion_interrupt and not in_mouth():
+            state = ACTIVE
+            last_motion = now()
+        else:                                 # 5-min heartbeat
+            if not in_mouth():
+                send_BLE_beacon()
+
+    elif state == ACTIVE:
+        send_BLE_beacon()                     # fast advertising
+        sleep(1 s)
+        if motion_interrupt_fired_recently():
+            last_motion = now()
+        if (now() - last_motion) > 5 s:
+            state = SETTLING
+
+    elif state == SETTLING:
+        # small burst so the resting position is well sampled
+        for i in 1..3:
+            send_BLE_beacon()
+            sleep(2 s)
+        state = DEEP_SLEEP
+
+function in_mouth():
+    T = temp.read()
+    return T > 30 C        # oral T ~36 C; off-mouth drops below 30 C
+\end{lstlisting}
+
+% =====================================================================
+\newpage
+\section{Commercial components}
+% =====================================================================
+
+\begin{tabularx}{\linewidth}{@{} l l Y @{}}
+\toprule
+\textsc{function} & \textsc{part} & \textsc{key spec} \\
+\midrule
+BLE 5 SoC                & Nordic \textsf{nRF52810} / \textsf{nRF52832}
+& ARM Cortex-M4 @ $64\,$MHz; $1.5\,\mu$A System-ON sleep with full
+  RAM retention; $\approx 4.6\,$mA TX at $0\,$dBm
+  \emph{(Nordic product brief)}. \\
+\addlinespace[2pt]
+Wake-on-motion accel.\   & ST \textsf{LIS2DH12} \emph{or} Bosch \textsf{BMA400}
+& 3-axis MEMS; LIS2DH12 $\approx 2\,\mu$A at $10\,$Hz ODR in
+  low-power mode; BMA400 $<1\,\mu$A in self-wake-up; dedicated INT
+  pin. \\
+\addlinespace[2pt]
+Temperature sensor       & TI \textsf{TMP117} \emph{or} ST \textsf{STTS22H}
+& I$^2$C; TMP117 is designed for clinical thermometers (ASTM E1112,
+  $\pm 0.1\,^\circ$C); STTS22H consumes $1.75\,\mu$A in one-shot mode. \\
+\addlinespace[2pt]
+Battery                  & \textsf{CR2032} coin cell
+& $\approx 220\,$mAh at $3\,$V (mid of the manufacturer
+  $210$--$240\,$mAh range). \\
+\bottomrule
+\end{tabularx}
+
+% =====================================================================
+\section{Energy-saving estimate}
+% =====================================================================
+
+\subsection*{Working numbers}
+
+\begin{description}[font=\sffamily\small\bfseries\color{slate}]
+\item[Charge per advertising event.]
+A full event on the three advertising channels lasts $\approx 5\,$ms
+with an average current $\approx 2.85\,$mA (peak $\approx 5\,$mA on
+the actual TX bursts). That gives $\approx 14\,\mu$C $\approx
+\mathbf{4\,\text{nAh}}$ per beacon, the figure produced by Nordic's
+\emph{nRF52 online power profiler}, which we use as representative.
+\item[Idle current.]
+$1.5\,\mu$A (nRF52810 System-ON, RAM ret.) $+\ 1.5\,\mu$A
+(LIS2DH12 low-power, $10\,$Hz) $\approx 3\,\mu$A
+$\Rightarrow 72\,\mu$Ah/day. Identical in both firmwares, cancels in
+the radio-saving ratio.
+\item[Battery.] CR2032, $\approx 220\,$mAh at $3\,$V.
+\item[Usage model.]
+The denture is moved $\approx 15\,$min/day in total (taken out,
+cleaned, repositioned); the other $\approx 23.75\,$h it sits still.
+With the in-mouth sensor, the heartbeat is further suppressed during the
+$\approx 20\,$h/day the denture is worn.
+\end{description}
+
+\subsection*{Beacons per day}
+
+\begin{tabularx}{\linewidth}{@{} Y r r @{}}
+\toprule
+                                        & \textsc{original} & \textsc{improved} \\
+\midrule
+Periodic beacons (1 every $10\,$s, $24\,$h) & $24\cdot 3600/10 = 8\,640$ &,\\
+Motion-driven ($15\,$min, $1\,$beacon/s)    &,     & $900$            \\
+Heartbeat ($23.75\,$h, 1 per $5\,$min)      &,     & $\approx 285$    \\
+Settling burst ($\sim 10$ episodes, 3 each) &,     & $\approx 30$     \\
+\midrule
+\textbf{Total}                              & \textbf{8\,640} & $\mathbf{\approx 1\,215}$ \\
+\bottomrule
+\end{tabularx}
+
+\smallskip
+\noindent With the in-mouth temperature sensor active, heartbeats are
+emitted only during the $\approx 4\,$h/day the denture is out of
+mouth, so heartbeats drop to $\approx 48$ and the total becomes
+$\approx \mathbf{978}$ beacons/day.
+
+\subsection*{Radio-energy comparison}
+
+\begin{tabularx}{\linewidth}{@{} Y r r @{}}
+\toprule
+\textsc{scenario}                       & \textsc{beacons/day} & \textsc{TX charge/day} \\
+\midrule
+Original (periodic $10\,$s)             & $8\,640$ & $\approx 34.6\,\mu$Ah \\
+Improved (no temperature sensor)        & $1\,215$ & $\approx 4.9\,\mu$Ah  \\
+Improved $+$ in-mouth detection         & $978$    & $\approx 3.9\,\mu$Ah  \\
+\bottomrule
+\end{tabularx}
+
+\smallskip
+\noindent
+Saving on the radio component:\par
+\hspace*{1em}--- improved, no temperature sensor:\quad
+$1 - 4.9/34.6 \approx \mathbf{86\,\%}$\par
+\hspace*{1em}--- improved + in-mouth detection:\quad
+$1 - 3.9/34.6 \approx \mathbf{89\,\%}$
+
+\subsection*{Battery lifetime}
+
+Adding the identical idle current of $72\,\mu$Ah/day:
+
+\begin{tabularx}{\linewidth}{@{} Y r r @{}}
+\toprule
+\textsc{scenario}                       & \textsc{total charge/day} & \textsc{CR2032 lifetime}$^*$ \\
+\midrule
+Original                                & $72 + 34.6 \approx 107\,\mu$Ah  & $\approx 2060\,$d \,($\approx 5.6\,$y) \\
+Improved (no temp)                      & $72 + 4.9 \approx 77\,\mu$Ah    & $\approx 2860\,$d \,($\approx 7.8\,$y) \\
+Improved $+$ in-mouth                   & $72 + 3.9 \approx 76\,\mu$Ah    & $\approx 2900\,$d \,($\approx 7.9\,$y) \\
+\bottomrule
+\end{tabularx}
+
+\smallskip
+
+\paragraph{Result}
+Radio activity is cut by $86$--$89\,\%$. Because the idle current then
+dominates the residual budget, the overall daily energy drops by
+$\approx 28\,\%$ and battery lifetime is extended by roughly
+$\mathbf{1.4\times}$. Critically, the localization \emph{quality} also
+improves: while the denture is actually moving, gateways now receive one
+beacon every second instead of one every ten seconds, so the RSSI
+samples used for the fix are denser exactly when the answer matters.
+
+\end{document}
